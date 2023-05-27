@@ -1,0 +1,6 @@
+1,welcome.png,3,0000,1900
+1,bar_prices.png,3,1900,2200
+1,goodnight.png,7,2200,2359
+1,coming_up_1.png,7,2200,2359
+1,coming_up_2.png,7,2200,2359
+1,coming_up_3.png,7,2200,2359

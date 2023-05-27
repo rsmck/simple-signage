@@ -1,0 +1,99 @@
+<html>
+<head>
+<style type="text/css">
+body { background-color: #000; }
+#c {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-position: center;
+  background-size: cover;
+  background-image: url("/assets/blank.png");
+  height: 100%;
+  width: 100%;
+  transition: opacity 0.2s linear;
+}
+.hidden { display: none; }
+</style>
+<script src="/js/papa.js" language="javascript"></script>
+<script language="javascript">
+var monitorId = 'display';
+var slideshowPos = -1;
+var playlist = [];
+var curImage = '';
+
+function updatePlaylist() {
+	var ds = Date.now();
+	Papa.parse("/assets/"+monitorId+".txt?ts="+ds, {
+		download: true,
+		dynamicTyping: true,
+		skipEmptyLines: true,
+		complete: function(results) {
+			if (Array.isArray(results.data)) { playlist = results.data; }
+		}
+	});
+}
+
+function nextSlide() {
+	// if we don't have any slides yet, ignore it until we do
+	if (playlist.length == 0) {
+		setTimeout(nextSlide, 1000);
+		return;
+	}
+
+	// increment the counter
+	slideshowPos++;
+
+	// if we've reached the end of the list, start at the beginning again
+	if (playlist.length-1 < slideshowPos) {
+		slideshowPos = 0;
+	}
+
+	// if there's a time frame for this, check it's valid
+	var date = new Date();
+	var currentTime = parseInt(date.getHours()+""+date.getMinutes());
+
+	if (playlist[slideshowPos].length == 5) {
+		// start / end time
+		var validFrom = parseInt(playlist[slideshowPos][3]);
+		var validTo = parseInt(playlist[slideshowPos][4]);
+		if (validTo == 0) { validTo = 2359; }
+		if (currentTime < validFrom || currentTime > validTo) {
+			// skip this slide
+			return nextSlide();
+		}
+	}
+
+	showImage(playlist[slideshowPos][1]);
+
+	// buffer the next image
+	if (playlist.length-1 > slideshowPos) {
+		document.getElementById("buf").src = '/assets/'+playlist[slideshowPos+1][1];
+	}
+
+	// set timer for the next one
+	setTimeout(nextSlide, playlist[slideshowPos][2]*1000);
+}
+
+function showImage(img) {
+	if (curImage == img) { return true; }
+
+	// change image
+	curImage = img;
+
+	document.getElementById("c").style.opacity = 0; // this takes 0.5s
+	setTimeout(function() {
+		document.getElementById("c").style.backgroundImage = 'url(/assets/'+curImage+')';
+		setTimeout(function() { document.getElementById("c").style.opacity = 1; }, 200);
+	}, 600);
+}
+updatePlaylist();
+nextSlide();
+setInterval(updatePlaylist, 5000);
+</script>
+</head>
+<body>
+<div id="c"></div>
+<div class="hidden"><img id="buf" src="#"></div>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<html>
+<head>
+<style type="text/css">
+body { background-color: #000; }
+.sselem { position: fixed; top: 0; left: 0; background-position: center; background-size: cover; height: 100%; width: 100%; }
+#c_a { z-index: 10; background-image: url("/assets/signage_imgs/blank.png"); }
+#c_b { z-index: -9; background-image: url("/assets/signage_imgs/blank.png"); }
+.hidden { display: none; }
+</style>
+<script src="/js/papa.js" language="javascript"></script>
+<script language="javascript">
+var monitorId = 'bar';
+var slideshowPos = 0;
+var playlist = [];
+var enaSlides = []; 
+var plhash = ''; // not a hash just now, just a JSON string
+var curFrame = 'c_a';
+var nextFrame = 'c_b';
+
+function updatePlaylist() {
+	var ds = Date.now();
+	Papa.parse("/assets/signage_imgs/"+monitorId+".txt?ts="+ds, {
+		download: true,
+		dynamicTyping: true,
+		skipEmptyLines: true,
+		complete: function(results) {
+			if (Array.isArray(results.data)) { 
+				playlist = results.data;
+				if (JSON.stringify(results.data) != plhash) {
+					plhash = JSON.stringify(playlist);
+					updateEnabledSlides();
+					if (playlist.length > 0) {
+						prepNextSlide(0);
+					}
+				}
+			}
+		}
+	});
+}
+
+function updateEnabledSlides() {
+	// if there's a time frame for this, check it's valid
+	var date = new Date();
+	var tm = String(date.getMinutes()).padStart(2, "0");
+	var th = String(date.getHours()).padStart(2, "0");
+	var currentTime = th+tm;
+
+	var newEnaSlides = [];
+
+	for (var i in playlist) {
+		// start / end time
+		if (playlist[i].length > 6) {
+			var validFrom = parseInt(playlist[i][5]);
+			var validTo = parseInt(playlist[i][6]);
+			if (validTo == 0) { validTo = 2400; }
+			if (currentTime >= validFrom || currentTime <= validTo) {
+				newEnaSlides.push(i);
+			}
+		} else {
+			newEnaSlides.push(i);
+		}
+	}
+	
+	enaSlides = JSON.parse(JSON.stringify(newEnaSlides));
+}
+
+async function prepNextSlide(i) { 
+	if (curFrame == 'c_a') { nextFrame = 'c_b'; }
+	if (curFrame == 'c_b') { nextFrame = 'c_a'; }
+
+	var newImageUrl = '/assets/signage_imgs/'+playlist[enaSlides[i]][1];
+	document.getElementById(nextFrame).style.opacity = 0; // should already be 0, but be sure.
+	document.getElementById(nextFrame).src = '/assets/signage_imgs/'+playlist[enaSlides[i]][1];
+
+	imgPreload(newImageUrl).then(() => {
+		document.getElementById(nextFrame).style.backgroundImage = 'url('+newImageUrl+')';
+	});
+}
+
+
+async function swapSlides(transtype, intFade = 600) {
+	if (curFrame == 'c_a') { nextFrame = 'c_b'; }
+	if (curFrame == 'c_b') { nextFrame = 'c_a'; }
+
+	return new Promise((resolve, reject) => {
+		// snap (we have to change frame to ensure it loads properly, no flicker)
+	
+		if (transtype == 'f') {
+			// fade through black (we don't need to change the frame here, but do for consistency)
+	
+			document.getElementById(nextFrame).style.transition = 'opacity '+intFade/1000+'s linear'; 
+			document.getElementById(curFrame).style.transition = 'opacity '+intFade/1000+'s linear'; 
+			document.getElementById(curFrame).style.opacity = 0; // should already be 0, but be sure.
+		
+			setTimeout(function() { 
+				document.getElementById(nextFrame).style.zIndex = 100; // move this on top
+				document.getElementById(nextFrame).style.opacity = 1; 
+				document.getElementById(curFrame).style.zIndex = -1;
+				curFrame = nextFrame;
+				resolve('');
+			}, intFade+200);
+		} else if (transtype == 'x') {
+			document.getElementById(nextFrame).style.transition = 'opacity '+intFade/1000+'s linear'; 
+			document.getElementById(curFrame).style.transition = 'opacity '+intFade/1000+'s linear'; 
+		
+			setTimeout(function() { 
+				document.getElementById(nextFrame).style.zIndex = 100; // move this on top
+				document.getElementById(nextFrame).style.opacity = 1; 
+				document.getElementById(curFrame).style.opacity = 0;
+				document.getElementById(curFrame).style.zIndex = -1;
+				curFrame = nextFrame;
+				resolve('');
+			}, intFade+200);
+		} else if (transtype == 's') {
+			// set the image in the next frame
+			document.getElementById(nextFrame).style.transition = 'opacity 0s';
+			document.getElementById(curFrame).style.transition = 'opacity 0s';
+			document.getElementById(nextFrame).style.opacity = 0; // should already be 0, but be sure.
+			document.getElementById(nextFrame).style.zIndex = 100; // move this on top
+			document.getElementById(nextFrame).style.opacity = 1;
+			document.getElementById(curFrame).style.opacity = 0;
+			document.getElementById(curFrame).style.zIndex = -1;
+			curFrame = nextFrame;
+			resolve('');
+		}
+	});
+}
+
+function imgPreload(src) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.addEventListener('load', resolve);
+        image.addEventListener('error', reject);
+        image.src = src;
+    });
+}
+
+function nextSlide() {
+	// if we don't have any slides yet, ignore it until we do
+	if (enaSlides.length == 0) {
+		setTimeout(nextSlide, 1000);
+		return;
+	}
+
+	swapSlides(playlist[enaSlides[slideshowPos]][3]).then(function() {
+		// display this slide for as long as intended... 
+		setTimeout(nextSlide, playlist[enaSlides[slideshowPos]][2]*1000);
+
+		// increment the counter
+		slideshowPos++;
+	
+		// if we've reached the end of the list, start at the beginning again
+		if (enaSlides.length-1 < slideshowPos) {
+			slideshowPos = 0;
+		} 
+		
+		prepNextSlide(slideshowPos);
+	});	
+}
+
+// 
+updatePlaylist();
+updateEnabledSlides();
+setInterval(updatePlaylist, 5000);
+setInterval(updateEnabledSlides, 120000);
+nextSlide();
+</script>
+</head>
+<body>
+<div class="sselem" id="c_a"></div>
+<div class="sselem" id="c_b"></div>
+<div class="hidden"><img id="buf" src="#"></div>
+</body>
+</html>

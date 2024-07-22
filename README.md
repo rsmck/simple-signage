@@ -30,6 +30,21 @@ The first column is unused in this release. The second parameter is the file nam
 
 The above example shows the "Welcome" screen all day until the bar opens at 1900. The bar prices from 1900-2200. Then a "Thank you and goodnight" message and slideshow after the bar closes.
 
+From v2, there is are additional parameters e.g.
+
+```
+1,coming_up_1.png,7,"x",false,2200,2359
+1,coming_up_2.png,7,"x",false,2200,2359
+1,coming_up_3.png,7,"x",false,2200,2359
+```
+
+The fourth parameter is always `false` (unused in this release), the third parameter is a string of one of the following;
+| Value  | Transition Type |
+| ------------- | ------------- |
+| x | Crossfade |
+| s | Snap |
+| f | Fade-Through-Black (Mimic old slideshow behaviour) |
+
 ### Simple Design
 
 This is a single page HTML/JS file that was made as simple as possible. It relies on the excellent https://github.com/mholt/PapaParse library to parse the CSV out of laziness but has no other external dependencies (e.g on things like jQuery) and does not require an internet connection to operate.
